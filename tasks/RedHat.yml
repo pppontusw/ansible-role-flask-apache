@@ -1,0 +1,59 @@
+- name: install EPEL repo
+  yum:
+    name: "{{ epel_repo_url }}"
+    state: present
+  register: result
+  until: '"failed" not in result'
+  retries: 5
+  delay: 10
+  tags: yum
+
+- name: import EPEL key
+  rpm_key:
+    key: "{{ epel_repo_gpg_key_url }}"
+    state: present
+  tags: yum
+
+- name: install prequisites
+  yum: name={{item}} state=present enablerepo=epel
+  with_items:
+    - python
+    - python-pip
+    - python-devel
+    - httpd
+    - mod_wsgi
+    - python-virtualenv
+
+#- name: overwrite welcome
+#  copy:
+#    content: "#emptied"
+#    dest: /etc/httpd/conf.d/welcome.conf
+
+- name: install prequisites
+  yum: name={{item}} state=present enablerepo=epel
+  with_items:
+    - mod_ssl
+    - openssl
+  when: flask_wsgi_ssl_cert is defined or flask_wsgi_ssl_cert_path is defined 
+
+- name: install redhat extras
+  yum:  name={{ item }} state=present
+  with_items: "{{yum_packages|default([])}}"
+
+- name: enable firewalld service
+  service:
+    name: firewalld
+    state: started
+    enabled: yes
+  tags: firewalld
+
+- name: configure firewalld
+  firewalld: service=http permanent=true state=enabled
+  notify: restart firewalld
+  tags: firewalld
+
+- name: configure firewalld
+  firewalld: service=https permanent=true state=enabled
+  notify: restart firewalld
+  tags: firewalld
+  when: flask_wsgi_ssl_cert is defined or flask_wsgi_ssl_cert_path is defined 

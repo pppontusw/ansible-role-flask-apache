@@ -1,0 +1,65 @@
+{% if flask_wsgi_ssl_cert is defined %}
+<VirtualHost *:{{apache_http_port|default(80)}}>
+    ServerName {{server_name}}
+    Redirect permanent / https://{{server_name}}/
+</VirtualHost>
+<VirtualHost *:{{apache_https_port|default(443)}}>
+    ServerName {{server_name}}
+
+    SSLEngine on
+    SSLProtocol -all +TLSv1.2
+    SSLCipherSuite EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:ECDHE-RSA-AES128-SHA:DHE-RSA-AES128-GCM-SHA256:AES256+EDH:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GC$
+    SSLHonorCipherOrder     on
+
+    SSLCertificateFile      /ssl/{{flask_wsgi_app_name}}/cert.pem
+    SSLCertificateKeyFile   /ssl/{{flask_wsgi_app_name}}/key.pem
+
+    {% if flask_wsgi_int_ca is defined %}
+    SSLCertificateChainFile /ssl/{{flask_wsgi_app_name}}/ca.pem
+    {% endif %}
+
+    #SSLOpenSSLConfCmd DHParameters /ssl/dhparams.pem
+
+    WSGIDaemonProcess {{server_name}} user={{apache_mod_wsgi_user}} group={{apache_mod_wsgi_group}} home={{apache_mod_wsgi_path}} threads=5
+    WSGIScriptAlias / {{apache_mod_wsgi_path}}/{{apache_mod_wsgi_filename}}
+    {% if static_location is defined %}
+    Alias /static {{apache_mod_wsgi_path}}/{{static_location}}
+    {% endif %}
+
+    <Directory {{apache_mod_wsgi_path}}>
+        WSGIProcessGroup {{server_name}}
+        WSGIApplicationGroup %{GLOBAL}
+        Order deny,allow
+        Require all granted
+    </Directory>
+
+{% if vhost_extra is defined %}
+{{vhost_extra}}
+{% endif %}
+
+</VirtualHost>
+{% else %}
+<VirtualHost *:{{apache_http_port|default(80)}}>
+{% if server_name is defined %}
+    ServerName {{server_name}}
+{% endif %}
+
+    WSGIDaemonProcess {{server_name}} user={{apache_mod_wsgi_user}} group={{apache_mod_wsgi_group}} home={{apache_mod_wsgi_path}} threads=5
+    WSGIScriptAlias / {{apache_mod_wsgi_path}}/{{apache_mod_wsgi_filename}}
+    {% if static_location is defined %}
+    Alias /static {{apache_mod_wsgi_path}}/{{static_location}}
+    {% endif %}
+
+    <Directory {{apache_mod_wsgi_path}}>
+        WSGIProcessGroup {{server_name}}
+        WSGIApplicationGroup %{GLOBAL}
+        Order deny,allow
+        Require all granted
+    </Directory>
+
+{% if vhost_extra is defined %}
+{{vhost_extra}}
+{% endif %}
+
+</VirtualHost>
+{% endif %}

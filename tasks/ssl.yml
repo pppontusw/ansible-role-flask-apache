@@ -1,0 +1,99 @@
+- name: create ssl base folder
+  file: 
+    path: "/ssl/" 
+    state: directory
+    owner: "{{apache_mod_wsgi_user}}"
+    group: "{{apache_mod_wsgi_group}}"
+    mode: 0600
+    setype: httpd_config_t
+
+- name: check if dhparams are generated
+  stat: 
+    path: "/ssl/dhparams.pem"
+  register: st
+
+- name: generate dhparams
+  shell: 'openssl dhparam -out /ssl/dhparams.pem 2048'
+  when: st.stat.exists == False
+  notify:
+  - restart apache
+
+- name: chown dhparams
+  file: 
+    path: "/ssl/dhparams.pem" 
+    state: file
+    owner: "{{apache_mod_wsgi_user}}"
+    group: "{{apache_mod_wsgi_group}}"
+    mode: 0600
+    setype: httpd_config_t
+  notify:
+  - restart apache
+
+- name: create ssl folders
+  file: 
+    path: "/ssl/{{ flask_wsgi_app_name }}" 
+    state: directory
+    owner: "{{apache_mod_wsgi_user}}"
+    group: "{{apache_mod_wsgi_group}}"
+    mode: 0600
+    setype: httpd_config_t
+
+- name: copy ssl-certificates
+  copy:
+    content: "{{ flask_wsgi_ssl_cert }}"
+    dest: "/ssl/{{ flask_wsgi_app_name }}/cert.pem"
+    owner: "{{apache_mod_wsgi_user}}"
+    group: "{{apache_mod_wsgi_group}}"
+    mode: 0600
+    setype: httpd_config_t
+  when: flask_wsgi_ssl_cert is defined
+  notify:
+    - restart apache
+
+- name: copy ssl-keys
+  copy:
+    content: "{{ flask_wsgi_ssl_key }}"
+    dest: "/ssl/{{ flask_wsgi_app_name }}/key.pem"
+    owner: "{{apache_mod_wsgi_user}}"
+    group: "{{apache_mod_wsgi_group}}"
+    mode: 0600
+    setype: httpd_config_t
+  when: flask_wsgi_ssl_key is defined
+  notify:
+    - restart apache
+
+- name: copy ssl-ca
+  copy:
+    content: "{{ flask_wsgi_int_ca }}"
+    dest: "/ssl/{{ flask_wsgi_app_name }}/ca.pem"
+    owner: "{{apache_mod_wsgi_user}}"
+    group: "{{apache_mod_wsgi_group}}"
+    mode: 0600
+    setype: httpd_config_t
+  when: flask_wsgi_int_ca is defined
+  notify:
+    - restart apache
+
+- name: copy ssl-certificates
+  copy:
+    src: "{{ flask_wsgi_ssl_cert_path }}"
+    dest: "/ssl/{{ flask_wsgi_app_name }}/cert.pem"
+    owner: "{{apache_mod_wsgi_user}}"
+    group: "{{apache_mod_wsgi_group}}"
+    mode: 0600
+    setype: httpd_config_t
+  when: flask_wsgi_ssl_cert_path is defined
+  notify:
+    - restart apache
+
+- name: copy ssl-keys
+  copy:
+    src: "{{ flask_wsgi_ssl_key_path }}"
+    dest: "/ssl/{{ flask_wsgi_app_name }}/key.pem"
+    owner: "{{apache_mod_wsgi_user}}"
+    group: "{{apache_mod_wsgi_group}}"
+    mode: 0600
+    setype: httpd_config_t
+  when: flask_wsgi_ssl_key_path is defined
+  notify:
+    - restart apache

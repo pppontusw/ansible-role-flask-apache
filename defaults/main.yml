@@ -1,0 +1,46 @@
+flask_wsgi_install_path: /opt
+
+flask_wsgi_user: 'www-data'
+flask_wsgi_group: 'www-data'
+
+flask_wsgi_pip_packages:
+  - flask
+
+flask_wsgi_app_name: flaskapp
+
+flask_wsgi_copy_files:
+  - filename: "{{flask_wsgi_app_name}}.wsgi"
+    content: |
+     import sys
+     sys.path.insert(0, '{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}')
+     from app import app as application
+  - filename: config.py
+    content: |
+     import os
+     import uuid
+     basedir = os.path.abspath(os.path.dirname(__file__))
+     WTF_CSRF_ENABLED = True
+     SECRET_KEY = str(uuid.uuid4())
+
+python_path: python
+
+#yum_packages:
+#apt_packages:
+
+server_name: www.example.com
+
+apache_mod_wsgi_user: "{{flask_wsgi_user}}"
+apache_mod_wsgi_group: "{{flask_wsgi_group}}"
+
+apache_mod_wsgi_path: "{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}"
+apache_mod_wsgi_filename: "{{flask_wsgi_app_name}}.wsgi"
+
+static_location: app/static/
+
+#flask_wsgi_ssl_cert: 
+#flask_wsgi_ssl_key: 
+
+# flask_wsgi_int_ca: 
+
+#flask_wsgi_ssl_cert_path:
+#flask_wsgi_ssl_key_path:

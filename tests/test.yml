@@ -1,0 +1,152 @@
+- name: Setup HTTP test
+  hosts: all
+  vars:
+    - flask_wsgi_copy_files:
+      - filename: "{{flask_wsgi_app_name}}.wsgi"
+        content: |
+         activate_this = '{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}/bin/activate_this.py'
+         execfile(activate_this, dict(__file__=activate_this))
+         import sys
+         sys.path.insert(0, '{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}')
+         from hello import app as application
+         application.debug = False
+    - flask_wsgi_pip_packages:    
+        - flask
+    - flask_wsgi_app_name: test-application
+    - flask_wsgi_install_path: /opt
+    - server_name: test-application
+    - static_location: app/static/
+  roles:
+    - flask-wsgi-apache
+  tasks:
+    - copy:
+        src: hello.py
+        dest: '{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}/hello.py'
+        mode: 0755
+      notify: restart apache
+  tags: http
+
+- name: Run HTTP test
+  hosts: all
+  tasks:
+    - get_url:
+        url: "http://{{ansible_default_ipv4.address}}"
+        dest: /tmp
+      register: response
+      delegate_to: localhost
+    - debug:
+        msg: "{{response}}"
+  tags: 
+    - test
+    - http
+
+- include: stop-docker.yml
+- include: start-docker.yml
+
+#- name: Setup HTTPS test
+#  hosts: all
+#  vars:
+#    - flask_wsgi_copy_files:
+#      - filename: "{{flask_wsgi_app_name}}.wsgi"
+#        content: |
+#         activate_this = '{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}/bin/activate_this.py'
+#         execfile(activate_this, dict(__file__=activate_this))
+#         import sys
+#         sys.path.insert(0, '{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}')
+#         from hello import app as application
+#         application.debug = False
+#    - flask_wsgi_ssl_cert: "{{vault_ssl_cert_wc_universumglobal_com_noca}}"
+#    - flask_wsgi_ssl_key: "{{vault_ssl_key_wc_universumglobal_com}}"
+#    - flask_wsgi_int_ca: "{{ssl_rapidssl_int_ca}}"
+#    - flask_wsgi_pip_packages:    
+#        - flask
+#    - flask_wsgi_app_name: test-application
+#    - flask_wsgi_install_path: /opt
+#    - server_name: test-application.universumglobal.com
+#    - static_location: app/static/
+#  roles:
+#    - flask-wsgi-apache
+#  tasks:
+#    - copy:
+#        src: hello.py
+#        dest: '{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}/hello.py'
+#        mode: 0755
+#      notify: restart apache
+#  tags: https
+#
+#- name: Run HTTPS test
+#  hosts: all
+#  serial: 1
+#  vars:
+#    - server_name: test-application.universumglobal.com
+#  tasks:
+#    - lineinfile:
+#        regexp: "{{server_name}}$"
+#        line: "{{ansible_default_ipv4.address}} {{server_name}}"
+#        dest: /etc/hosts
+#        state: present
+#      delegate_to: localhost
+#      become: yes
+#    - get_url:
+#        url: "https://{{server_name}}"
+#        dest: /tmp
+#      register: response
+#      delegate_to: localhost
+#    - debug:
+#        msg: "{{response}}"
+#    - lineinfile:
+#        regexp: "{{server_name}}$"
+#        dest: /etc/hosts
+#        state: absent
+#      delegate_to: localhost
+#      become: yes
+#  tags: 
+#    - test
+#    - https
+#
+#- include: stop-docker.yml
+#- include: start-docker.yml
+
+- name: Setup HTTP non standard port test
+  hosts: all
+  vars:
+    - flask_wsgi_copy_files:
+      - filename: "{{flask_wsgi_app_name}}.wsgi"
+        content: |
+         activate_this = '{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}/bin/activate_this.py'
+         execfile(activate_this, dict(__file__=activate_this))
+         import sys
+         sys.path.insert(0, '{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}')
+         from hello import app as application
+         application.debug = False
+    - flask_wsgi_pip_packages:    
+        - flask
+    - flask_wsgi_app_name: test-application
+    - apache_http_port: 8080
+    - flask_wsgi_install_path: /opt
+    - server_name: test-application
+    - static_location: app/static/
+  roles:
+    - flask-wsgi-apache
+  tasks:
+    - copy:
+        src: hello.py
+        dest: '{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}/hello.py'
+        mode: 0755
+      notify: restart apache
+  tags: http
+
+- name: Run HTTP non standard port test
+  hosts: all
+  tasks:
+    - get_url:
+        url: "http://{{ansible_default_ipv4.address}}:8080"
+        dest: /tmp
+      register: response
+      delegate_to: localhost
+    - debug:
+        msg: "{{response}}"
+  tags: 
+    - test
+    - http
+

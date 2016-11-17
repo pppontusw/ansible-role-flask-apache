@@ -1,0 +1,116 @@
+- name: include OS-specific variables
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- include: "{{ ansible_os_family }}.yml"
+  become: yes
+
+- name: create {{flask_wsgi_group}} group
+  group: name={{flask_wsgi_group}} state=present
+  become: yes
+
+- name: create {{flask_wsgi_user}} user
+  user: name={{flask_wsgi_user}} groups={{flask_wsgi_group}} state=present
+  become: yes
+
+- name: create application folder
+  file: 
+    path: '{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}'
+    state: directory
+    owner: "{{flask_wsgi_user}}"
+    group: "{{flask_wsgi_group}}"
+    mode: 0755
+    setype: httpd_config_t
+  become: yes
+
+- name: python virtualenv
+  shell: virtualenv -p {{python_path}} {{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}
+  become: yes
+  ignore_errors: true
+
+- name: pip install
+  pip: name={{item}} virtualenv={{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}
+  with_items: "{{flask_wsgi_pip_packages}}"
+  become: yes
+ 
+- name: copy files over
+  copy:
+    content: "{{item.content}}"
+    dest: "{{flask_wsgi_install_path}}/{{flask_wsgi_app_name}}/{{item.filename}}"
+    owner: "{{flask_wsgi_user}}"
+    group: "{{flask_wsgi_group}}"
+    mode: 0644
+    setype: httpd_config_t
+  with_items: 
+    - "{{flask_wsgi_copy_files}}"
+  become: yes
+  notify:
+    - restart apache
+
+- include: ssl.yml
+  when: flask_wsgi_ssl_cert is defined or flask_wsgi_ssl_cert_path is defined
+
+- name: copy vhost
+  template:
+    src: "../templates/vhost.j2"
+    dest: "{{apache_vhost_path}}/{{server_name}}.conf"
+    owner: "{{flask_wsgi_user}}"
+    group: "{{flask_wsgi_group}}"
+    mode: 0644
+    setype: httpd_config_t
+  notify:
+    - restart apache
+  become: yes
+
+- name: add to ports.conf
+  lineinfile:
+    dest: "{{apache_vhost_path}}/../ports.conf"
+    regexp: "^Listen {{apache_http_port|default(80)}}"
+    line: "Listen {{apache_http_port|default(80)}}"
+  notify:
+    - restart apache
+  become: yes
+  when: ansible_os_family == 'Debian'
+
+- name: add to ports.conf
+  lineinfile:
+    dest: "{{apache_vhost_path}}/../ports.conf"
+    regexp: "^Listen {{apache_https_port|default(443)}}"
+    line: "Listen {{apache_https_port|default(443)}}"
+  notify:
+    - restart apache
+  become: yes
+  when: (ansible_os_family == 'Debian') and (flask_wsgi_ssl_cert is defined or flask_wsgi_ssl_cert_path is defined)
+
+- name: rm vhost
+  file:
+    path: "{{apache_vhost_path}}/000-default.conf"
+    state: absent
+  notify:
+    - restart apache
+  become: yes
+
+- name: rm vhost
+  file:
+    path: "/etc/apache2/sites-enabled/000-default.conf"
+    state: absent
+  notify:
+    - restart apache
+  when: ansible_os_family == 'Debian'
+  become: yes
+
+- name: create symlinks
+  file: 
+    src: "/etc/apache2/sites-available/{{server_name}}.conf" 
+    dest: "/etc/apache2/sites-enabled/{{server_name}}.conf" 
+    state: link
+    owner: "{{flask_wsgi_user}}"
+    group: "{{flask_wsgi_group}}"
+    mode: 0644
+  when: ansible_os_family == 'Debian'
+  notify:
+    - restart apache
+  become: yes
+
+- name: enable apache
+  service: "name={{ apache_process_name }} state=started enabled=yes"
+  become: yes
