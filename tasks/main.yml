@@ -114,7 +114,7 @@
 - name: add modules
   shell: "a2enmod {{item}}"
   become: yes
-  with_items: load_modules
+  with_items: "{{load_modules}}"
   when: load_modules is defined
 
 - name: enable apache
